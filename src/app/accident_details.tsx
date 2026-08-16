@@ -18,6 +18,7 @@ import {
   Text,
   View,
 } from "react-native";
+
 const index = () => {
   const [isPressed, setIsPressed] = useState(false);
   const [heConfirmed, setHeConfirmed] = useState(false);
@@ -148,12 +149,12 @@ const index = () => {
           onPressOut={toggleColorScheme}
         >
           {heConfirmed ? (
-            <View className="  self-start rounded-xl flex-row gap-2 bg-green-800 mx-10 mb-6 p-4">
+            <View className="  self-start rounded-xl flex-row gap-2 bg-light-btn mx-10 mb-6 p-4">
               <ThumbsUp color={"green"} fill={"#fff"} />
               <Text className="text-white text-xl">Alerte confirmée </Text>
             </View>
           ) : (
-            <View className="  self-start rounded-xl flex-row gap-2 bg-green-800 mx-10 mb-6 p-4">
+            <View className="  self-start rounded-xl flex-row gap-2 bg-light-btn mx-10 mb-6 p-4">
               <ThumbsUp color={"white"} />
               <Text className="text-white text-xl">
                 Je confirme cette alerte{" "}
