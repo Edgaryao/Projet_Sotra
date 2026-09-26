@@ -1,6 +1,5 @@
 import { Tabs } from "expo-router";
-import { Bell, House, Map, Plus, User,Bot , Send } from "lucide-react-native";
-import { Pressable, Text , View } from "react-native";
+import { House, UserRound,BookOpenText, MessageCircleQuestion } from "lucide-react-native";
 
 export default function TabsLayout() {
   return (
@@ -11,95 +10,39 @@ export default function TabsLayout() {
 
         tabBarStyle: {
           height: 70,
-          position: "absolute",
-          bottom: 15,
-          left: 15,
-          right: 15,
-          borderRadius: 25,
-          borderTopWidth: 0,
-          elevation: 8,
         },
       }}
     >
       <Tabs.Screen
-        name="exploration"
+        name="acceuil"
         options={{
           title: "Acceuil",
 
           tabBarIcon: ({ color }) => <House size={25} color={color} />,
         }}
       />
-
       <Tabs.Screen
-        name="carte"
+        name="cours"
         options={{
-          title: "Carte",
+          title: "Cours",
 
-          tabBarIcon: ({ color }) => <Map size={25} color={color} />,
+          tabBarIcon: ({ color }) => <BookOpenText size={25} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="notification"
+        name="Ia"
         options={{
-          title: "notification",
-
-          tabBarIcon: ({ color }) => <Bell size={25} color={color} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="signaler"
-        options={{
-          tabBarButton: ({ onPress }) => (
-            <View
-              style={{
-                flex: 1,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Pressable
-                onPress={onPress}
-                style={{
-                  position: "absolute",
-                  top: -10,
-                  width: 60,
-                  height: 60,
-                  borderRadius: 30,
-                  backgroundColor: "#E53935",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  elevation: 8,
-                }}
-              >
-                <Plus size={28} color="white" />
-              </Pressable>
-
-            </View>
+          title: "IA",
+          tabBarIcon: ({ color }) => (
+            <MessageCircleQuestion size={25} color={color} />
           ),
         }}
       />
-
-      <Tabs.Screen
-        name="ChatBot"
-        options={{
-          title: "IA",
-          tabBarIcon: ({ color }) => <Bot size={25} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="signalements"
-        options={{
-          title: "signalements",
-          tabBarIcon: ({ color }) => <Send size={25} color={color} />,
-        }}
-      />
-
       <Tabs.Screen
         name="profil"
         options={{
           title: "profil",
-          tabBarIcon: ({ color }) => <User size={25} color={color} />,
+          tabBarIcon: ({ color }) => <UserRound size={25} color={color} />,
         }}
       />
     </Tabs>

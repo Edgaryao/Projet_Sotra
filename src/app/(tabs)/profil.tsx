@@ -1,10 +1,10 @@
 import { View, Text } from 'react-native'
 import React from 'react'
 
-export default function profil() {
+export default function notification() {
   return (
     <View>
-      <Text>profil</Text>
+      <Text>notification</Text>
     </View>
   )
 }
