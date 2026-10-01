@@ -1,50 +1,16 @@
-import { Tabs } from "expo-router";
-import { House, UserRound,BookOpenText, MessageCircleQuestion } from "lucide-react-native";
+import { Stack } from "expo-router";
 
-export default function TabsLayout() {
+export default function StackLayout() {
   return (
-    <Tabs
+    <Stack
       screenOptions={{
         headerShown: false,
-        tabBarShowLabel: true,
-
-        tabBarStyle: {
-          height: 70,
-        },
       }}
     >
-      <Tabs.Screen
-        name="acceuil"
-        options={{
-          title: "Acceuil",
-
-          tabBarIcon: ({ color }) => <House size={25} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="cours"
-        options={{
-          title: "Cours",
-
-          tabBarIcon: ({ color }) => <BookOpenText size={25} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="Ia"
-        options={{
-          title: "IA",
-          tabBarIcon: ({ color }) => (
-            <MessageCircleQuestion size={25} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profil"
-        options={{
-          title: "profil",
-          tabBarIcon: ({ color }) => <UserRound size={25} color={color} />,
-        }}
-      />
-    </Tabs>
+      <Stack.Screen name="acceuil" />
+      <Stack.Screen name="carte" />
+      <Stack.Screen name="Ia" />
+      <Stack.Screen name="profil" />
+    </Stack>
   );
 }

@@ -1,244 +1,614 @@
 import {
-  ArrowUpRight,
+  Route,
+  BusFront,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
+  ClockFading,
   LocateFixed,
+  MapPin,
   Search,
-  Clock
+  Sparkles,
+  X,
 } from "lucide-react-native";
+import { useEffect, useState } from "react";
 import {
+  Alert,
   ImageBackground,
+  Keyboard,
+  Modal,
   Pressable,
   ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
-
+import { rechercherBus, ResultatRecherche } from "../../database/recherche";
+import {
+  ajouterRechercheRecente,
+  recupererRecherchesRecentes,
+  supprimerRecherchesRecentes,
+} from "../../database/recherchesRecentes";
+import { reinitialiserBase } from "../../database/resetDatabase";
 export default function acceuil() {
-  return (
-    <ImageBackground
-      source={require("../../../assets/images/background.png")}
-      className="flex-1"
-      resizeMode="cover"
-    >
-      <SafeAreaView className="flex-1 px-5 pt-3">
-        {/* Header with logo */}
-        <View className="mb-8 flex-row items-center gap-3">
-          <View>
-            <Text className="text-xl font-extrabold text-gray-900 drop-shadow-lg">
-              SOTRA GO
-            </Text>
-            <Text className="text-xs font-semibold tracking-wider text-gray-700">
-              ABIDJAN
-            </Text>
-          </View>
-        </View>
+  useEffect(() => {
+    chargerRecherchesRecentes();
+  }, []);
 
-        {/* Main title section */}
-        <View className="mb-6">
-          <Text className="text-4xl font-extrabold leading-tight text-gray-900 drop-shadow-lg">
-            Où souhaitez-vous aller ?
-          </Text>
-          <Text className="mt-3 text-base leading-6 text-gray-700">
-            Trouvez une ligne ou un arrêt pour votre trajet.
-          </Text>
-        </View>
+  const chargerRecherchesRecentes = async () => {
+    const recherches = await recupererRecherchesRecentes();
 
-        {/* Search bar with shadow */}
-        <View className="h-16 flex-row items-center gap-3 rounded-2xl bg-white px-5 shadow-2xl shadow-black/30">
-          <Search color="#10B981" size={22} strokeWidth={2.5} />
-          <TextInput
-            accessibilityLabel="Rechercher une ligne de bus"
-            className="flex-1 text-base font-medium text-gray-900"
-            placeholder="Numero de bus, ligne, arrêt...."
-            placeholderTextColor="#94A3B8"
-          />
-        </View>
+    setRecherchesRecentes(recherches);
+  };
+  const [modalEffacerVisible, setModalEffacerVisible] = useState(false);
+  const [voirTout, setVoirTout] = useState(false);
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [resultatsRecherche, setResultatsRecherche] = useState<
+    ResultatRecherche[]
+  >([]);
 
-        {/* Location button */}
-        <Pressable
-          accessibilityRole="button"
-          className="mt-4 min-h-14 flex-row items-center gap-3 rounded-2xl bg-emerald-600 px-5 shadow-xl shadow-emerald-900/40"
-          style={({ pressed }) => ({
-            opacity: pressed ? 0.85 : 1,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
-          })}
-        >
-          <LocateFixed color="white" size={22} strokeWidth={2.5} />
-          <Text className="flex-1 text-sm font-bold text-white">
-            Trouver les arrêts autour de moi
-          </Text>
-          <ChevronRight color="white" size={22} strokeWidth={2.5} />
-        </Pressable>
+  const [rechercheEnCours, setRechercheEnCours] = useState(false);
+  const [recherchesRecentes, setRecherchesRecentes] = useState<string[]>([]);
+  const handleSearchFocus = () => {
+    setIsSearchMode(true);
+  };
 
-        {/* Scrollable content */}
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          className="mt-8 flex-1"
-          contentContainerClassName="gap-6 pb-32"
-        >
-          {/* Quick access section */}
-          <View>
-            <View className="mb-4 flex-row items-center justify-between">
-              <Text className="text-2xl font-extrabold text-gray-900">
-                Accès rapide
+  const handleSearchClose = () => {
+    setIsSearchMode(false);
+    setSearchQuery("");
+    Keyboard.dismiss();
+  };
+  const handleSearchChange = (texte: string) => {
+    setVoirTout(false);
+    effectuerRecherche(texte, false);
+  };
+  const effectuerRecherche = async (texte: string, afficherTout = false) => {
+    setSearchQuery(texte);
+
+    if (!texte.trim()) {
+      setResultatsRecherche([]);
+      return;
+    }
+
+    try {
+      setRechercheEnCours(true);
+
+      const resultats = await rechercherBus(
+        texte,
+        afficherTout ? undefined : 20,
+      );
+      if (resultats.length > 0) {
+      }
+      setResultatsRecherche(resultats);
+      console.log("🔎 Résultats avant affichage :", resultatsRecherche);
+    } catch (error) {
+      console.error("❌ Erreur recherche SQLite :", error);
+      setResultatsRecherche([]);
+    } finally {
+      setRechercheEnCours(false);
+    }
+  };
+
+  // Fonction pour réinitialiser la base de données (TEST uniquement)
+  const resetDatabase = async () => {
+    Alert.alert(
+      "Réinitialiser la base ?",
+      "Cela supprimera toutes les données. Vous devrez re-synchroniser.",
+      [
+        {
+          text: "Annuler",
+          style: "cancel",
+        },
+        {
+          text: "Réinitialiser",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await reinitialiserBase();
+              console.log("✅ Base de données vidée avec succès");
+              Alert.alert(
+                "Succès",
+                "Base de données réinitialisée ! Fermez et relancez l'application.",
+              );
+            } catch (error) {
+              console.error("❌ Erreur lors de la réinitialisation:", error);
+              Alert.alert("Erreur", "Impossible de réinitialiser la base");
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  // Vue normale (accueil)
+  if (!isSearchMode) {
+    return (
+      <ImageBackground
+        source={require("../../../assets/images/background.png")}
+        className="flex-1"
+        resizeMode="cover"
+      >
+        <SafeAreaView className="flex-1 px-5 pt-3">
+          {/* Header with logo */}
+          <View className="mb-8 flex-row items-center gap-3">
+            <View>
+              <Text className="text-xl font-extrabold text-gray-900 drop-shadow-lg">
+                SOTRA GO
               </Text>
-            </View>
-            <View className="flex-row justify-between gap-4">
-              <Pressable
-                accessibilityRole="button"
-                className="min-h-44 flex-1 overflow-hidden rounded-3xl shadow-xl shadow-black/10"
-                style={({ pressed }) => ({
-                  opacity: pressed ? 0.9 : 1,
-                  transform: [{ scale: pressed ? 0.97 : 1 }],
-                })}
-              >
-                <ImageBackground
-                  source={require("../../../assets/images/trajet.jpg")}
-                  className="flex-1 justify-between p-5"
-                  resizeMode="cover"
-                >
-                  <View className="absolute inset-0 bg-black/40" />
-                  <View className="flex-row items-center justify-between">
-                    <View className="h-14 w-14 items-center justify-center rounded-2xl" />
-                    <View className="h-8 w-8 items-center justify-center rounded-full bg-white/90">
-                      <ArrowUpRight
-                        color="#6B7280"
-                        size={18}
-                        strokeWidth={2.5}
-                      />
-                    </View>
-                  </View>
-                  <View className="mt-6">
-                    <Text className="text-xl font-extrabold text-white drop-shadow-lg">
-                      Trouver un trajet
-                    </Text>
-                    <Text className="mt-1.5 text-xs leading-5 text-white/95 drop-shadow-md">
-                      Départ ---{">"} Destination
-                    </Text>
-                  </View>
-                </ImageBackground>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                className="min-h-44 flex-1 overflow-hidden rounded-3xl shadow-xl shadow-black/10"
-                style={({ pressed }) => ({
-                  opacity: pressed ? 0.9 : 1,
-                  transform: [{ scale: pressed ? 0.97 : 1 }],
-                })}
-              >
-                <ImageBackground
-                  source={require("../../../assets/images/carte.png")}
-                  className="flex-1 justify-between p-5"
-                  resizeMode="cover"
-                >
-                  <View className="absolute inset-0 bg-black/40" />
-                  <View className="flex-row items-center justify-between">
-                    <View className="h-14 w-14 items-center justify-center rounded-2xl"></View>
-                    <View className="h-8 w-8 items-center justify-center rounded-full bg-white/90">
-                      <ArrowUpRight
-                        color="#6B7280"
-                        size={18}
-                        strokeWidth={2.5}
-                      />
-                    </View>
-                  </View>
-                  <View className="mt-6">
-                    <Text className="text-xl font-extrabold text-white drop-shadow-lg">
-                      Carte des arrêts
-                    </Text>
-                    <Text className="mt-1.5 text-xs leading-5 text-white/95 drop-shadow-md">
-                      Explorer les alentours
-                    </Text>
-                  </View>
-                </ImageBackground>
-              </Pressable>
+              <Text className="text-xs font-semibold tracking-wider text-gray-700">
+                ABIDJAN
+              </Text>
             </View>
           </View>
 
-          {/* Recent section */}
-          <View>
-            <View className="mb-4 flex-row items-center justify-between">
-              <Text className="text-2xl font-extrabold text-gray-900">
-                Récents
+          {/* Main title section */}
+          <View className="mb-6">
+            <Text className="text-4xl font-extrabold leading-tight text-gray-900 drop-shadow-lg">
+              Où souhaitez-vous aller ?
+            </Text>
+            <Text className="mt-3 text-base leading-6 text-gray-700">
+              Trouvez une ligne ou un arrêt pour votre trajet.
+            </Text>
+          </View>
+
+          {/* Search bar with shadow */}
+          <Pressable onPress={handleSearchFocus}>
+            <View className="h-16 flex-row items-center gap-3 rounded-2xl bg-white px-5 shadow-2xl shadow-black/30">
+              <Search color="#10B981" size={22} strokeWidth={2.5} />
+              <Text className="flex-1 text-base font-medium text-gray-400">
+                Numero de bus, ligne, arrêt....
               </Text>
-              <Pressable>
-                <Text className="text-sm font-semibold text-emerald-700">
-                  Tout effacer
+            </View>
+          </Pressable>
+
+          {/* Location button */}
+          <Pressable
+            accessibilityRole="button"
+            className="mt-4 min-h-14 flex-row items-center gap-3 rounded-2xl bg-emerald-600 px-5 shadow-xl shadow-emerald-900/40"
+            style={({ pressed }) => ({
+              opacity: pressed ? 0.85 : 1,
+              transform: [{ scale: pressed ? 0.98 : 1 }],
+            })}
+          >
+            <LocateFixed color="white" size={22} strokeWidth={2.5} />
+            <Text className="flex-1 text-sm font-bold text-white">
+              Trouver les arrêts autour de moi
+            </Text>
+            <ChevronRight color="white" size={22} strokeWidth={2.5} />
+          </Pressable>
+          <Pressable
+            onPress={resetDatabase}
+            className="rounded-lg border-2 border-red-500 bg-red-500/10 px-4 py-2"
+          >
+            <Text className="text-center text-sm font-bold text-red-500">
+              🔧 RESET DB (TEST)
+            </Text>
+          </Pressable>
+
+          {/* Scrollable content */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            className="mt-8 flex-1"
+            contentContainerClassName="gap-6 pb-32"
+          >
+            {/* Quick access section */}
+            <View>
+              <View className="mb-4 flex-row items-center justify-between">
+                <Text className="text-2xl font-extrabold text-gray-900">
+                  Accès rapide
                 </Text>
-              </Pressable>
+              </View>
+              <View className="flex-row justify-between gap-4">
+                <Pressable
+                  accessibilityRole="button"
+                  className="min-h-44 flex-1 overflow-hidden rounded-3xl shadow-xl shadow-black/10"
+                  style={({ pressed }) => ({
+                    opacity: pressed ? 0.9 : 1,
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
+                  })}
+                >
+                  <ImageBackground
+                    source={require("../../../assets/images/trajet.jpg")}
+                    className="flex-1 justify-between p-5"
+                    resizeMode="cover"
+                  >
+                    <View className="absolute inset-0 bg-black/40" />
+                    <View className="flex-row items-center justify-between">
+                      <View className="h-14 w-14 items-center justify-center rounded-2xl" />
+                      <View className="h-8 w-8 items-center justify-center rounded-full bg-white/90">
+                        <Route color="#6B7280" size={18} strokeWidth={2.5} />
+                      </View>
+                    </View>
+                    <View className="mt-6">
+                      <Text className="text-xl font-extrabold text-white drop-shadow-lg">
+                        Trouver un trajet
+                      </Text>
+                      <Text className="mt-1.5 text-xs leading-5 text-white/95 drop-shadow-md">
+                        Départ ---{">"} Destination
+                      </Text>
+                    </View>
+                  </ImageBackground>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  className="min-h-44 flex-1 overflow-hidden rounded-3xl shadow-xl shadow-black/10"
+                  style={({ pressed }) => ({
+                    opacity: pressed ? 0.9 : 1,
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
+                  })}
+                >
+                  <ImageBackground
+                    source={require("../../../assets/images/carte.png")}
+                    className="flex-1 justify-between p-5"
+                    resizeMode="cover"
+                  >
+                    <View className="absolute inset-0 bg-black/40" />
+                    <View className="flex-row items-center justify-between">
+                      <View className="h-14 w-14 items-center justify-center rounded-2xl"></View>
+                      <View className="h-8 w-8 items-center justify-center rounded-full bg-white/90">
+                        <Route color="#6B7280" size={18} strokeWidth={2.5} />
+                      </View>
+                    </View>
+                    <View className="mt-6">
+                      <Text className="text-xl font-extrabold text-white drop-shadow-lg">
+                        Carte des arrêts
+                      </Text>
+                      <Text className="mt-1.5 text-xs leading-5 text-white/95 drop-shadow-md">
+                        Explorer les alentours
+                      </Text>
+                    </View>
+                  </ImageBackground>
+                </Pressable>
+              </View>
             </View>
 
-            {/* Recent items */}
-            <View className="gap-3">
-              <Pressable
-                accessibilityRole="button"
-                className="min-h-20 flex-row items-center gap-4 rounded-2xl bg-white p-4 shadow-lg shadow-black/5"
-                style={({ pressed }) => ({
-                  opacity: pressed ? 0.9 : 1,
-                })}
-              >
-                <View className="h-12 w-12 items-center justify-center rounded-xl bg-emerald-100">
-                  <Clock color="#047857" size={22} strokeWidth={2.2} />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-base font-bold text-gray-900">
-                    Yopougon → Plateau
+            {/* Recent section */}
+            {recherchesRecentes.length > 0 && (
+              <View className="mt-6">
+                <View className="mb-3 flex-row items-center justify-between">
+                  <Text className="text-base font-semibold text-gray-900">
+                    Recherches récentes
                   </Text>
-                  <Text className="mt-1 text-xs text-gray-600">
-                    Ligne 81 • Il y a 2 heures
-                  </Text>
-                </View>
-                <ChevronRight color="#9CA3AF" size={20} strokeWidth={2.5} />
-              </Pressable>
 
-              <Pressable
-                accessibilityRole="button"
-                className="min-h-20 flex-row items-center gap-4 rounded-2xl bg-white p-4 shadow-lg shadow-black/5"
-                style={({ pressed }) => ({
-                  opacity: pressed ? 0.9 : 1,
-                })}
-              >
-                <View className="h-12 w-12 items-center justify-center rounded-xl bg-sky-100">
-                  <Clock color="#0369A1" size={22} strokeWidth={2.2} />
+                  <Pressable
+                    onPress={() => {
+                      setModalEffacerVisible(true);
+                    }}
+                  >
+                    <Text className="text-sm font-medium text-emerald-600">
+                      Effacer
+                    </Text>
+                  </Pressable>
                 </View>
-                <View className="flex-1">
-                  <Text className="text-base font-bold text-gray-900">
-                    Cocody → Adjamé
-                  </Text>
-                  <Text className="mt-1 text-xs text-gray-600">
-                    Ligne 23 • Hier
-                  </Text>
-                </View>
-                <ChevronRight color="#9CA3AF" size={20} strokeWidth={2.5} />
-              </Pressable>
 
-              <Pressable
-                accessibilityRole="button"
-                className="min-h-20 flex-row items-center gap-4 rounded-2xl bg-white p-4 shadow-lg shadow-black/5"
-                style={({ pressed }) => ({
-                  opacity: pressed ? 0.9 : 1,
-                })}
-              >
-                <View className="h-12 w-12 items-center justify-center rounded-xl bg-amber-100">
-                  <Clock color="#D97706" size={22} strokeWidth={2.2} />
+                <View className="gap-2">
+                  {recherchesRecentes.map((recherche, index) => (
+                    <Pressable
+                      key={`${recherche}-${index}`}
+                      onPress={() => {
+                        effectuerRecherche(recherche, false);
+                        setIsSearchMode(true);
+                      }}
+                      className="flex-row items-center gap-3 rounded-xl bg-gray-50 p-4"
+                    >
+                      <ClockFading color="#6B7280" size={19} strokeWidth={2} />
+
+                      <Text className="flex-1 text-sm font-medium text-gray-700">
+                        {recherche}
+                      </Text>
+
+                      <ChevronRight color="#D1D5DB" size={18} />
+                    </Pressable>
+                  ))}
                 </View>
-                <View className="flex-1">
-                  <Text className="text-base font-bold text-gray-900">
-                    Abobo → Marcory
-                  </Text>
-                  <Text className="mt-1 text-xs text-gray-600">
-                    Ligne 57 • Il y a 3 jours
-                  </Text>
+              </View>
+            )}
+          </ScrollView>
+          <Modal
+            visible={modalEffacerVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setModalEffacerVisible(false)}
+          >
+            <View className="flex-1 items-center justify-center bg-black/50 px-6">
+              <View className="w-full rounded-3xl bg-white p-6">
+                {/* Titre */}
+                <Text className="text-xl font-bold text-gray-900">
+                  Effacer les recherches ?
+                </Text>
+
+                {/* Description */}
+                <Text className="mt-2 text-sm leading-5 text-gray-500">
+                  Voulez-vous vraiment supprimer toutes vos recherches récentes
+                  ?
+                </Text>
+
+                {/* Boutons */}
+                <View className="mt-6 flex-row gap-3">
+                  <Pressable
+                    onPress={() => setModalEffacerVisible(false)}
+                    className="flex-1 items-center rounded-xl bg-gray-100 py-3"
+                  >
+                    <Text className="font-semibold text-gray-700">Annuler</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={async () => {
+                      await supprimerRecherchesRecentes();
+
+                      setRecherchesRecentes([]);
+                      setModalEffacerVisible(false);
+                    }}
+                    className="flex-1 items-center rounded-xl bg-red-500 py-3"
+                  >
+                    <Text className="font-semibold text-white">Effacer</Text>
+                  </Pressable>
                 </View>
-                <ChevronRight color="#9CA3AF" size={20} strokeWidth={2.5} />
-              </Pressable>
+              </View>
+            </View>
+          </Modal>
+        </SafeAreaView>
+      </ImageBackground>
+    );
+    
+  }
+
+  // Vue mode recherche
+  
+  return (
+    <Animated.View entering={FadeIn.duration(400)} className="flex-1 bg-white">
+      <SafeAreaView className="flex-1">
+        {/* Barre de recherche en haut */}
+        <View className="border-b border-gray-200 bg-white px-4 py-3">
+          <View className="flex-row items-center gap-3">
+            {/* Bouton retour */}
+            <Pressable
+              onPress={handleSearchClose}
+              className="h-10 w-10 items-center justify-center"
+            >
+              <X color="#374151" size={24} strokeWidth={2.5} />
+            </Pressable>
+
+            {/* Input de recherche */}
+            <View className="flex-1 flex-row items-center gap-3 rounded-xl bg-gray-100 px-4 py-3">
+              <Search color="#10B981" size={20} strokeWidth={2.5} />
+              <TextInput
+                autoFocus
+                value={searchQuery}
+                onChangeText={handleSearchChange}
+                className="flex-1 text-base font-medium text-gray-900"
+                placeholder="Rechercher une ligne de bus, arrêts..."
+                placeholderTextColor="#9CA3AF"
+              />
+              {searchQuery.length > 0 && (
+                <Pressable
+                  onPress={() => {
+                    setSearchQuery("");
+                    setResultatsRecherche([]);
+                    setVoirTout(false);
+                  }}
+                >
+                  <X color="#9CA3AF" size={18} strokeWidth={2.5} />
+                </Pressable>
+              )}
             </View>
           </View>
+        </View>
+
+        {/* Contenu de la recherche */}
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          {/* Assistant IA en haut */}
+          <View className="border-b border-gray-100 bg-emerald-50 px-4 py-4">
+            <Pressable
+              className="flex-row items-center gap-4 rounded-2xl bg-white p-4 shadow-sm shadow-emerald-900/10"
+              style={({ pressed }) => ({
+                opacity: pressed ? 0.9 : 1,
+              })}
+            >
+              <View className="h-12 w-12 items-center justify-center rounded-xl bg-amber-400">
+                <Sparkles color="#1F2937" size={22} strokeWidth={2.5} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-base font-bold text-gray-900">
+                  Demander à l'IA
+                </Text>
+                <Text className="mt-0.5 text-sm text-gray-600">
+                  Recherche complexe ou question sur les trajets
+                </Text>
+              </View>
+              <ChevronRight color="#9CA3AF" size={22} strokeWidth={2.5} />
+            </Pressable>
+          </View>
+
+          {/* Résultats de recherche */}
+          <View className="px-4 py-4">
+            <Text className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+              {searchQuery.trim()
+                ? "Résultats"
+                : "Recherchez une ligne ou un arrêt"}
+            </Text>
+
+            {rechercheEnCours ? (
+              <View className="items-center py-8">
+                <Text className="text-sm text-gray-500">
+                  Recherche en cours...
+                </Text>
+              </View>
+            ) : resultatsRecherche.length > 0 ? (
+              <View className="gap-2">
+                {resultatsRecherche.map((item, index) => (
+                  <Pressable
+                    key={`${item.type}-${item.id}-${index}`}
+                    className="flex-row items-center gap-4 rounded-xl bg-gray-50 p-4"
+                    style={({ pressed }) => ({
+                      opacity: pressed ? 0.7 : 1,
+                    })}
+                    onPress={async () => {
+                      console.log("Résultat sélectionné :", item);
+
+                      await ajouterRechercheRecente(item.titre);
+                      await chargerRecherchesRecentes();
+                    }}
+                  >
+                    {/* Icône selon le type de résultat */}
+                    <View
+                      className={
+                        item.type === "ligne"
+                          ? "h-10 w-10 items-center justify-center rounded-lg bg-emerald-100"
+                          : item.type === "parcours"
+                            ? "h-10 w-10 items-center justify-center rounded-lg bg-amber-100"
+                            : "h-10 w-10 items-center justify-center rounded-lg bg-sky-100"
+                      }
+                    >
+                      {item.type === "ligne" ? (
+                        <BusFront color="#047857" size={20} strokeWidth={2.2} />
+                      ) : item.type === "parcours" ? (
+                        <Route color="#D97706" size={20} strokeWidth={2.2} />
+                      ) : (
+                        <MapPin color="#0369A1" size={20} strokeWidth={2.2} />
+                      )}
+                    </View>
+
+                    {/* Texte */}
+                    <View className="flex-1">
+                      <Text className="text-base font-semibold text-gray-900">
+                        {item.titre}
+                      </Text>
+
+                      <Text className="mt-0.5 text-xs text-gray-600">
+                        {item.description}
+                      </Text>
+                    </View>
+
+                    {/* Flèche */}
+                    <ChevronRight color="#D1D5DB" size={20} strokeWidth={2.5} />
+                  </Pressable>
+                ))}
+              </View>
+            ) : searchQuery.trim() ? (
+              <View className="items-center py-8">
+                <Text className="text-base text-gray-500">
+                  Aucun résultat trouvé
+                </Text>
+
+                <Text className="mt-2 text-sm text-gray-400">
+                  Essayez avec un numéro de bus ou un nom d'arrêt
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          {resultatsRecherche.length >= 20 && !voirTout && (
+            <Pressable
+              className=" flex-row  justify-center items-center"
+              onPress={() => {
+                setVoirTout(true);
+                effectuerRecherche(searchQuery, true);
+              }}
+            >
+              <Text className="text-sm font-semibold p-4">Voir tout</Text>
+              <ChevronDown size={18} strokeWidth={2.2} />
+            </Pressable>
+          )}
+          {voirTout && resultatsRecherche.length > 20 && (
+            <Pressable
+              className=" flex-row  justify-center items-center"
+              onPress={() => {
+                setVoirTout(false);
+                effectuerRecherche(searchQuery, false);
+              }}
+            >
+              <Text className="text-sm font-semibold p-4">Réduire</Text>
+              <ChevronUp size={18} strokeWidth={2.2} />
+            </Pressable>
+          )}
+          {/* Recherches récentes en mode recherche */}
+          {recherchesRecentes.length > 0 && (
+            <View className="mt-6 mx-2">
+              <View className="mb-3 flex-row items-center justify-between mx-4">
+                <Text className="text-base font-semibold text-gray-900">
+                  Recherches récentes
+                </Text>
+
+                <Pressable
+                  onPress={() => {
+                    setModalEffacerVisible(true);
+                  }}
+                >
+                  <Text className="text-sm font-medium text-emerald-600">
+                    Effacer
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View className="gap-2">
+                {recherchesRecentes.map((recherche, index) => (
+                  <Pressable
+                    key={`${recherche}-${index}`}
+                    onPress={() => {
+                      effectuerRecherche(recherche, false);
+                    }}
+                    className="flex-row items-center gap-3 rounded-xl bg-gray-50 p-4"
+                  >
+                    <ClockFading color="#6B7280" size={19} strokeWidth={2} />
+
+                    <Text className="flex-1 text-sm font-medium text-gray-700">
+                      {recherche}
+                    </Text>
+
+                    <ChevronRight color="#D1D5DB" size={18} />
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
         </ScrollView>
+        <Modal
+          visible={modalEffacerVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setModalEffacerVisible(false)}
+        >
+          <View className="flex-1 items-center justify-center bg-black/50 px-6">
+            <View className="w-full rounded-3xl bg-white p-6">
+              {/* Titre */}
+              <Text className="text-xl font-bold text-gray-900">
+                Effacer les recherches ?
+              </Text>
+
+              {/* Description */}
+              <Text className="mt-2 text-sm leading-5 text-gray-500">
+                Voulez-vous vraiment supprimer toutes vos recherches récentes ?
+              </Text>
+
+              {/* Boutons */}
+              <View className="mt-6 flex-row gap-3">
+                <Pressable
+                  onPress={() => setModalEffacerVisible(false)}
+                  className="flex-1 items-center rounded-xl bg-gray-100 py-3"
+                >
+                  <Text className="font-semibold text-gray-700">Annuler</Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={async () => {
+                    await supprimerRecherchesRecentes();
+
+                    setRecherchesRecentes([]);
+                    setModalEffacerVisible(false);
+                  }}
+                  className="flex-1 items-center rounded-xl bg-red-500 py-3"
+                >
+                  <Text className="font-semibold text-white">Effacer</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
-    </ImageBackground>
+    </Animated.View>
   );
 }
