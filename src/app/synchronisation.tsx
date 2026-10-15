@@ -10,7 +10,6 @@ import {
   syncParcoursArrets,
   terminerSynchronisation,
 } from "../database/synchornisation_supabase_sqlite";
-import Btn from "./components/Btn";
 import { supabase } from "@/lib/supabase";
 type EtatSynchronistion = "enSynchro" | "success" | "erreur";
 
@@ -256,14 +255,14 @@ export default function Synchronisation() {
             </View>
           )}
 
-          <Btn
-            color="bg-white"
-            classNameText="text-emerald-900 font-semibold text-lg"
+          <Pressable
             onPress={reessayer}
-            className="mt-8 w-full rounded-2xl p-4"
+            className="mt-8 w-full items-center rounded-2xl bg-white p-4"
           >
-            Réessayer
-          </Btn>
+            <Text className="text-lg font-semibold text-emerald-900">
+              Réessayer
+            </Text>
+          </Pressable>
 
           <Pressable onPress={() => router.replace("/")}>
             <Text className="mt-4 text-sm font-semibold text-white underline">

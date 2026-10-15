@@ -156,53 +156,72 @@ export async function syncArrets() {
 
 // 4. Synchroniser les relations parcours-arrêts
 export async function syncParcoursArrets() {
-  const { data, error } = await supabase
-    .from("parcours_arrets")
-    .select("*");
-
-  if (error) {
-    console.error(
-      "❌ Erreur Supabase parcours_arrets :",
-      error,
-    );
-
-    throw error;
-  }
-
-  if (!data) {
-    throw new Error("Aucune relation parcours-arrêt reçue");
-  }
-
   const db = await getDatabase();
 
+  const tailleLot = 1000;
+  let debut = 0;
+  let totalSynchronise = 0;
+
   try {
-    await db.withTransactionAsync(async () => {
-      for (const parcoursArret of data) {
-        await db.runAsync(
-          `INSERT OR REPLACE INTO parcours_arrets
-           (id, parcours_id, arret_id, ordre)
-           VALUES (?, ?, ?, ?)`,
-          parcoursArret.id,
-          parcoursArret.parcours_id,
-          parcoursArret.arret_id,
-          parcoursArret.ordre,
-        );
+    while (true) {
+      const fin = debut + tailleLot - 1;
+
+      console.log(`📥 Téléchargement parcours-arrets : ${debut} → ${fin}`);
+
+      const { data, error } = await supabase
+        .from("parcours_arrets")
+        .select("*")
+        .range(debut, fin);
+
+      if (error) {
+        console.error("❌ Erreur Supabase parcours_arrets :", error);
+
+        throw error;
       }
 
-      // Marquer l'étape comme terminée
-      await db.runAsync(
-        `UPDATE synchronisation
-         SET parcours_arrets_ok = 1
-         WHERE id = 1`,
-      );
-    });
+      if (!data || data.length === 0) {
+        break;
+      }
 
-    console.log(
-      "✅ Parcours-arrets synchronisés :",
-      data.length,
+      // Insérer ce lot dans SQLite
+      await db.withTransactionAsync(async () => {
+        for (const parcoursArret of data) {
+          await db.runAsync(
+            `INSERT OR REPLACE INTO parcours_arrets
+             (id, parcours_id, arret_id, ordre)
+             VALUES (?, ?, ?, ?)`,
+            parcoursArret.id,
+            parcoursArret.parcours_id,
+            parcoursArret.arret_id,
+            parcoursArret.ordre,
+          );
+        }
+      });
+
+      totalSynchronise += data.length;
+
+      console.log(`✅ Lot synchronisé : ${data.length} lignes`);
+
+      console.log(`📊 Total synchronisé : ${totalSynchronise}`);
+
+      // Si le dernier lot contient moins de 1000 lignes,
+      // cela signifie qu'on est arrivé à la fin.
+      if (data.length < tailleLot) {
+        break;
+      }
+
+      debut += tailleLot;
+    }
+
+    await db.runAsync(
+      `UPDATE synchronisation
+       SET parcours_arrets_ok = 1
+       WHERE id = 1`,
     );
 
-    return data.length;
+    console.log("🎉 Total parcours-arrets synchronisés :", totalSynchronise);
+
+    return totalSynchronise;
   } catch (error) {
     console.error(
       "❌ Erreur lors de la synchronisation des parcours-arrets :",

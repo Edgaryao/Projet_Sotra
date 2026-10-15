@@ -11,6 +11,7 @@ export default function StackLayout() {
       <Stack.Screen name="carte" />
       <Stack.Screen name="Ia" />
       <Stack.Screen name="profil" />
+      <Stack.Screen name="parametre" />
     </Stack>
   );
 }

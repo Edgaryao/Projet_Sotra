@@ -1,6 +1,10 @@
+
 import { getDatabase } from "./database";
 
-// Type des résultats qui seront affichés dans l'input
+
+// TYPE DES RÉSULTATS
+
+
 export type ResultatRecherche = {
   id: number;
   type: "ligne" | "parcours" | "arret";
@@ -9,129 +13,345 @@ export type ResultatRecherche = {
   priorite: number;
 };
 
-// Rechercher dans la base SQLite locale
+
+// RECHERCHE DANS SQLITE
+
+
 export async function rechercherBus(
   recherche: string,
   limite?: number,
+  filtre: "tous" | "ligne" | "parcours" | "arret" = "tous",
 ): Promise<ResultatRecherche[]> {
   try {
     const db = await getDatabase();
 
+
+    // Nettoyer la recherche
+
+
     const texte = recherche.trim();
 
+    // Si la recherche est vide
     if (!texte) {
       return [];
     }
 
+    // Recherche contenant le texte
+    // Exemple : Abobo -> %Abobo%
     const terme = `%${texte}%`;
+
+    // Recherche commençant par le texte
+    // Exemple : 76 -> 76%
     const debut = `${texte}%`;
 
-    let sql = `
-      SELECT
-        l.id AS id,
-        'ligne' AS type,
-        'Bus ' || l.numero AS titre,
-        l.nom AS description,
+    // =================================================
+    // LISTE DES REQUÊTES
+    // =================================================
 
-        CASE
-          WHEN l.numero = ? THEN 1
-          WHEN l.numero LIKE ? THEN 2
-          WHEN l.nom LIKE ? THEN 3
-          ELSE 4
-        END AS priorite
+    const requetes: string[] = [];
 
-      FROM lignes l
+    // Paramètres utilisés par SQLite
+    const parametres: any[] = [];
 
-      WHERE l.numero LIKE ?
-         OR l.nom LIKE ?
+    // =================================================
+    // 1️⃣ RECHERCHE DES LIGNES
+    // =================================================
 
+    if (filtre === "tous" || filtre === "ligne") {
+      requetes.push(`
+        SELECT
+          l.id AS id,
+
+          'ligne' AS type,
+
+          'Bus ' || l.numero AS titre,
+
+          l.nom AS description,
+
+          CASE
+
+            -- Numéro exactement identique
+            WHEN l.numero = ? THEN 1
+
+            -- Numéro commence par la recherche
+            WHEN l.numero LIKE ? THEN 2
+
+            -- Nom de la ligne contient la recherche
+            WHEN l.nom LIKE ? THEN 3
+
+            -- Un arrêt de cette ligne contient la recherche
+            WHEN EXISTS (
+              SELECT 1
+
+              FROM parcours p
+
+              JOIN parcours_arrets pa
+                ON pa.parcours_id = p.id
+
+              JOIN arrets a
+                ON a.id = pa.arret_id
+
+              WHERE p.ligne_id = l.id
+
+                AND a.nom LIKE ?
+            ) THEN 3
+
+            -- Un parcours de cette ligne contient la recherche
+            WHEN EXISTS (
+              SELECT 1
+
+              FROM parcours p
+
+              WHERE p.ligne_id = l.id
+
+                AND p.nom LIKE ?
+            ) THEN 3
+
+            ELSE 4
+
+          END AS priorite
+
+        FROM lignes l
+
+        WHERE
+
+          -- Recherche par numéro
+          l.numero LIKE ?
+
+          OR
+
+          -- Recherche par nom de ligne
+          l.nom LIKE ?
+
+          OR
+
+          -- Recherche dans les parcours
+          EXISTS (
+            SELECT 1
+
+            FROM parcours p
+
+            WHERE p.ligne_id = l.id
+
+              AND p.nom LIKE ?
+          )
+
+          OR
+
+          -- Recherche dans les arrêts
+          EXISTS (
+            SELECT 1
+
+            FROM parcours p
+
+            JOIN parcours_arrets pa
+              ON pa.parcours_id = p.id
+
+            JOIN arrets a
+              ON a.id = pa.arret_id
+
+            WHERE p.ligne_id = l.id
+
+              AND a.nom LIKE ?
+          )
+      `);
+
+  
+      // PARAMÈTRES LIGNES
+  
+
+      parametres.push(
+
+        // CASE - numéro exact
+        texte,
+
+        // CASE - numéro commence par
+        debut,
+
+        // CASE - nom de ligne
+        terme,
+
+        // CASE - arrêt
+        terme,
+
+        // CASE - parcours
+        terme,
+
+        // WHERE - numéro
+        terme,
+
+        // WHERE - nom
+        terme,
+
+        // WHERE - parcours
+        terme,
+
+        // WHERE - arrêt
+        terme,
+      );
+    }
+
+    // =================================================
+    // 2️⃣ RECHERCHE DES PARCOURS
+    // =================================================
+
+    if (filtre === "tous" || filtre === "parcours") {
+      requetes.push(`
+        SELECT
+
+          p.id AS id,
+
+          'parcours' AS type,
+
+          p.nom AS titre,
+
+          'Ligne ' || l.numero AS description,
+
+          CASE
+
+            -- Le nom du parcours commence par la recherche
+            WHEN p.nom LIKE ? THEN 2
+
+            ELSE 4
+
+          END AS priorite
+
+        FROM parcours p
+
+        JOIN lignes l
+          ON l.id = p.ligne_id
+
+        WHERE p.nom LIKE ?
+      `);
+
+  
+      // PARAMÈTRES PARCOURS
+  
+
+      parametres.push(
+
+        // CASE
+        terme,
+
+        // WHERE
+        terme,
+      );
+    }
+
+    // =================================================
+    // 3️⃣ RECHERCHE DES ARRÊTS
+    // =================================================
+
+    if (filtre === "tous" || filtre === "arret") {
+      requetes.push(`
+        SELECT
+
+          a.id AS id,
+
+          'arret' AS type,
+
+          a.nom AS titre,
+
+          'Arrêt de bus' AS description,
+
+          CASE
+
+            -- Nom de l'arrêt commence par la recherche
+            WHEN a.nom LIKE ? THEN 2
+
+            ELSE 4
+
+          END AS priorite
+
+        FROM arrets a
+
+        WHERE a.nom LIKE ?
+      `);
+
+  
+      // PARAMÈTRES ARRÊTS
+  
+
+      parametres.push(
+
+        // CASE
+        terme,
+
+        // WHERE
+        terme,
+      );
+    }
+
+    // =================================================
+    // VÉRIFICATION
+    // =================================================
+
+    if (requetes.length === 0) {
+      return [];
+    }
+
+    // =================================================
+    // ASSEMBLER LES REQUÊTES
+    // =================================================
+
+    let sql = requetes.join(`
       UNION ALL
+    `);
 
-      SELECT
-        p.id AS id,
-        'parcours' AS type,
-        p.nom AS titre,
-        'Ligne ' || l.numero AS description,
+    // =================================================
+    // TRI PAR PRIORITÉ
+    // =================================================
 
-        CASE
-          WHEN p.nom LIKE ? THEN 3
-          ELSE 4
-        END AS priorite
-
-      FROM parcours p
-
-      JOIN lignes l ON l.id = p.ligne_id
-
-      WHERE p.nom LIKE ?
-
-      UNION ALL
-
-      SELECT
-        a.id AS id,
-        'arret' AS type,
-        a.nom AS titre,
-        'Arrêt de bus' AS description,
-
-        CASE
-          WHEN a.nom LIKE ? THEN 3
-          ELSE 4
-        END AS priorite
-
-      FROM arrets a
-
-      JOIN parcours_arrets pa ON pa.arret_id = a.id
-      JOIN parcours p ON p.id = pa.parcours_id
-      JOIN lignes l ON l.id = p.ligne_id
-
-      WHERE a.nom LIKE ?
-
+    sql += `
       ORDER BY priorite ASC
     `;
 
-    // Si une limite est donnée, on l'ajoute
+    // =================================================
+    // LIMITE
+    // =================================================
+
     if (limite !== undefined) {
-      sql += ` LIMIT ?`;
-    }
+      sql += `
+        LIMIT ?
+      `;
 
-    const parametres: any[] = [
-      // Recherche ligne exacte
-      texte,
-
-      // Ligne qui commence par le texte
-      debut,
-
-      // Nom de ligne contenant le texte
-      terme,
-
-      // WHERE l.numero
-      terme,
-
-      // WHERE l.nom
-      terme,
-
-      // Parcours
-      terme,
-
-      // WHERE p.nom
-      terme,
-
-      // Arrêt
-      terme,
-
-      // WHERE a.nom
-      terme,
-    ];
-
-    // Ajouter la limite seulement si elle existe
-    if (limite !== undefined) {
       parametres.push(limite);
     }
 
-    const resultats = await db.getAllAsync<ResultatRecherche>(sql, parametres);
+    // =================================================
+    // DEBUG
+    // =================================================
+
+    console.log("🔎 Recherche :", texte);
+
+    console.log("🎯 Filtre :", filtre);
+
+    console.log("📊 Limite :", limite);
+
+    // =================================================
+    // EXÉCUTER LA REQUÊTE
+    // =================================================
+
+    const resultats =
+      await db.getAllAsync<ResultatRecherche>(
+        sql,
+        parametres,
+      );
+
+    // =================================================
+    // RETOURNER LES RÉSULTATS
+    // =================================================
 
     return resultats;
+
   } catch (error) {
-    console.error("❌ Erreur dans rechercherBus:", error);
+
+    console.error(
+      "❌ Erreur dans rechercherBus :",
+      error,
+    );
+
     return [];
   }
 }
+

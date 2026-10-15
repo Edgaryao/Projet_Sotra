@@ -1,5 +1,5 @@
+import { router } from "expo-router";
 import {
-  Route,
   BusFront,
   ChevronDown,
   ChevronRight,
@@ -7,10 +7,15 @@ import {
   ClockFading,
   LocateFixed,
   MapPin,
+  Moon,
+  Route,
   Search,
+  SlidersHorizontal,
   Sparkles,
+  Sun,
   X,
 } from "lucide-react-native";
+import { useColorScheme } from "nativewind";
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -32,26 +37,54 @@ import {
   supprimerRecherchesRecentes,
 } from "../../database/recherchesRecentes";
 import { reinitialiserBase } from "../../database/resetDatabase";
+
+type FiltreType = "tous" | "ligne" | "arret" | "parcours";
+const filtres: { valeur: FiltreType; libelle: string }[] = [
+  { valeur: "tous", libelle: "Tous" },
+  { valeur: "ligne", libelle: "Bus" },
+  { valeur: "arret", libelle: "Arrêt" },
+  { valeur: "parcours", libelle: "Parcours" },
+];
+
 export default function acceuil() {
+  const { colorScheme, toggleColorScheme } = useColorScheme();
   useEffect(() => {
     chargerRecherchesRecentes();
+    {
+      /*charge les recherches récentes*/
+    }
   }, []);
 
   const chargerRecherchesRecentes = async () => {
+    {
+      /* fonction qui charge les recherches récentes*/
+    }
     const recherches = await recupererRecherchesRecentes();
 
     setRecherchesRecentes(recherches);
   };
+
   const [modalEffacerVisible, setModalEffacerVisible] = useState(false);
+  const [voirArretsProche, setVoirArretsProche] = useState(false);
+  const [changeTheme, setChangeTheme] = useState(false);
+  const [trouverTrajet, setTrouverTrajet] = useState(false);
+  const [voirCarteArrets, setVoirCarteArrets] = useState(false);
   const [voirTout, setVoirTout] = useState(false);
   const [isSearchMode, setIsSearchMode] = useState(false);
+  const [parameter, setparameter] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filtreType, setFiltreType] = useState<FiltreType>("tous");
+  const [filtresVisibles, setFiltresVisibles] = useState(false);
   const [resultatsRecherche, setResultatsRecherche] = useState<
     ResultatRecherche[]
   >([]);
 
   const [rechercheEnCours, setRechercheEnCours] = useState(false);
   const [recherchesRecentes, setRecherchesRecentes] = useState<string[]>([]);
+  const resultatsFiltres = resultatsRecherche.filter(
+    (item) => filtreType === "tous" || item.type === filtreType,
+  );
+
   const handleSearchFocus = () => {
     setIsSearchMode(true);
   };
@@ -79,6 +112,7 @@ export default function acceuil() {
       const resultats = await rechercherBus(
         texte,
         afficherTout ? undefined : 20,
+        filtreType,
       );
       if (resultats.length > 0) {
       }
@@ -127,36 +161,59 @@ export default function acceuil() {
   if (!isSearchMode) {
     return (
       <ImageBackground
-        source={require("../../../assets/images/background.png")}
+        source={
+          colorScheme === "light"
+            ? require("../../../assets/images/background.png")
+            : require("../../../assets/images/bg-dark.png")
+        }
         className="flex-1"
         resizeMode="cover"
       >
         <SafeAreaView className="flex-1 px-5 pt-3">
           {/* Header with logo */}
-          <View className="mb-8 flex-row items-center gap-3">
-            <View>
-              <Text className="text-xl font-extrabold text-gray-900 drop-shadow-lg">
+          <View className="mb-8 flex-row items-center gap-3 justify-between">
+            <View className="flex-1">
+              <Text className="text-xl font-extrabold dark:text-white text-gray-900 drop-shadow-lg">
                 SOTRA GO
               </Text>
-              <Text className="text-xs font-semibold tracking-wider text-gray-700">
+              <Text className="text-xs font-semibold  dark:text-white tracking-wider text-gray-700">
                 ABIDJAN
               </Text>
             </View>
+
+            <Pressable
+              style={{
+                opacity: parameter ? 0.85 : 1,
+                transform: [{ scale: parameter ? 0.98 : 1 }],
+              }}
+              onPressIn={() => setparameter(true)}
+              onPressOut={() => setparameter(false)}
+              onPress={() => {
+                setChangeTheme(!changeTheme);
+                toggleColorScheme();
+              }}
+            >
+              {changeTheme ? (
+                <Sun color={colorScheme === "light" ? "black" : "white"} />
+              ) : (
+                <Moon color={colorScheme === "light" ? "black" : "white"} />
+              )}
+            </Pressable>
           </View>
 
           {/* Main title section */}
           <View className="mb-6">
-            <Text className="text-4xl font-extrabold leading-tight text-gray-900 drop-shadow-lg">
+            <Text className="text-4xl dark:text-white font-extrabold leading-tight text-gray-900 drop-shadow-lg">
               Où souhaitez-vous aller ?
             </Text>
-            <Text className="mt-3 text-base leading-6 text-gray-700">
+            <Text className="mt-3 text-base leading-6 dark:text-white text-gray-700">
               Trouvez une ligne ou un arrêt pour votre trajet.
             </Text>
           </View>
 
           {/* Search bar with shadow */}
           <Pressable onPress={handleSearchFocus}>
-            <View className="h-16 flex-row items-center gap-3 rounded-2xl bg-white px-5 shadow-2xl shadow-black/30">
+            <View className="h-16 flex-row dark:bg-dark-background dark:border-dark-border items-center gap-3 rounded-2xl bg-white px-5 shadow-2xl shadow-black/30">
               <Search color="#10B981" size={22} strokeWidth={2.5} />
               <Text className="flex-1 text-base font-medium text-gray-400">
                 Numero de bus, ligne, arrêt....
@@ -168,10 +225,15 @@ export default function acceuil() {
           <Pressable
             accessibilityRole="button"
             className="mt-4 min-h-14 flex-row items-center gap-3 rounded-2xl bg-emerald-600 px-5 shadow-xl shadow-emerald-900/40"
-            style={({ pressed }) => ({
-              opacity: pressed ? 0.85 : 1,
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-            })}
+            style={{
+              opacity: voirArretsProche ? 0.85 : 1,
+              transform: [{ scale: voirArretsProche ? 0.98 : 1 }],
+            }}
+            onPressIn={() => setVoirArretsProche(true)}
+            onPressOut={() => setVoirArretsProche(false)}
+            onPress={() => {
+              router.push("/(tabs)/carte");
+            }}
           >
             <LocateFixed color="white" size={22} strokeWidth={2.5} />
             <Text className="flex-1 text-sm font-bold text-white">
@@ -179,21 +241,17 @@ export default function acceuil() {
             </Text>
             <ChevronRight color="white" size={22} strokeWidth={2.5} />
           </Pressable>
-          <Pressable
+          {/* <Pressable
             onPress={resetDatabase}
             className="rounded-lg border-2 border-red-500 bg-red-500/10 px-4 py-2"
           >
             <Text className="text-center text-sm font-bold text-red-500">
               🔧 RESET DB (TEST)
             </Text>
-          </Pressable>
+          </Pressable> */}
 
           {/* Scrollable content */}
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            className="mt-8 flex-1"
-            contentContainerClassName="gap-6 pb-32"
-          >
+          <View className="mt-8 flex-1">
             {/* Quick access section */}
             <View>
               <View className="mb-4 flex-row items-center justify-between">
@@ -205,10 +263,17 @@ export default function acceuil() {
                 <Pressable
                   accessibilityRole="button"
                   className="min-h-44 flex-1 overflow-hidden rounded-3xl shadow-xl shadow-black/10"
-                  style={({ pressed }) => ({
-                    opacity: pressed ? 0.9 : 1,
-                    transform: [{ scale: pressed ? 0.97 : 1 }],
-                  })}
+
+                  style={{
+                    opacity: trouverTrajet ? 0.9 : 1,
+                    transform: [{ scale: trouverTrajet ? 0.97 : 1 }],
+                  }}
+
+                  onPress={() => {
+                    router.push("/(tabs)/carte");
+                  }}
+                  onPressIn={() => setTrouverTrajet(true)}
+                  onPressOut={() => setTrouverTrajet(false)}
                 >
                   <ImageBackground
                     source={require("../../../assets/images/trajet.jpg")}
@@ -236,10 +301,16 @@ export default function acceuil() {
                 <Pressable
                   accessibilityRole="button"
                   className="min-h-44 flex-1 overflow-hidden rounded-3xl shadow-xl shadow-black/10"
-                  style={({ pressed }) => ({
-                    opacity: pressed ? 0.9 : 1,
-                    transform: [{ scale: pressed ? 0.97 : 1 }],
-                  })}
+                  style={{
+                    opacity: voirCarteArrets ? 0.9 : 1,
+                    transform: [{ scale: voirCarteArrets ? 0.97 : 1 }],
+                  }}
+
+                  onPress={() => {
+                    router.push("/(tabs)/carte");
+                  }}
+                  onPressIn={() => setVoirCarteArrets(true)}
+                  onPressOut={() => setVoirCarteArrets(false)}
                 >
                   <ImageBackground
                     source={require("../../../assets/images/carte.png")}
@@ -307,7 +378,7 @@ export default function acceuil() {
                 </View>
               </View>
             )}
-          </ScrollView>
+          </View>
           <Modal
             visible={modalEffacerVisible}
             transparent
@@ -354,11 +425,10 @@ export default function acceuil() {
         </SafeAreaView>
       </ImageBackground>
     );
-    
   }
 
   // Vue mode recherche
-  
+
   return (
     <Animated.View entering={FadeIn.duration(400)} className="flex-1 bg-white">
       <SafeAreaView className="flex-1">
@@ -395,8 +465,58 @@ export default function acceuil() {
                   <X color="#9CA3AF" size={18} strokeWidth={2.5} />
                 </Pressable>
               )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Afficher les filtres de recherche"
+                onPress={() => setFiltresVisibles((visibles) => !visibles)}
+                className={`h-9 w-9 items-center justify-center rounded-lg ${filtreType !== "tous" ? "bg-emerald-100" : "bg-white"}`}
+              >
+                <SlidersHorizontal
+                  color={filtreType !== "tous" ? "#047857" : "#6B7280"}
+                  size={20}
+                  strokeWidth={2.2}
+                />
+              </Pressable>
             </View>
           </View>
+          {filtresVisibles && (
+            <View className="mt-3 border-t border-gray-100 pt-3">
+              <View className="mb-2 flex-row items-center justify-between">
+                <Text className="text-sm font-semibold text-gray-700">
+                  Filtrer par
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Fermer les filtres"
+                  onPress={() => setFiltresVisibles(false)}
+                  className="px-2 py-1"
+                >
+                  <Text className="text-sm font-medium text-gray-500">
+                    Fermer
+                  </Text>
+                </Pressable>
+              </View>
+              <View className="flex-row gap-2">
+                {filtres.map((filtre) => (
+                  <Pressable
+                    key={filtre.valeur}
+                    accessibilityRole="button"
+                    accessibilityState={{
+                      selected: filtreType === filtre.valeur,
+                    }}
+                    onPress={() => setFiltreType(filtre.valeur)}
+                    className={`flex-1 items-center rounded-lg border px-2 py-2 ${filtreType === filtre.valeur ? "border-emerald-700 bg-emerald-700" : "border-gray-200 bg-white"}`}
+                  >
+                    <Text
+                      className={`text-sm font-semibold ${filtreType === filtre.valeur ? "text-white" : "text-gray-700"}`}
+                    >
+                      {filtre.libelle}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Contenu de la recherche */}
@@ -404,6 +524,9 @@ export default function acceuil() {
           {/* Assistant IA en haut */}
           <View className="border-b border-gray-100 bg-emerald-50 px-4 py-4">
             <Pressable
+              onPress={() => {
+                router.push("/(tabs)/Ia");
+              }}
               className="flex-row items-center gap-4 rounded-2xl bg-white p-4 shadow-sm shadow-emerald-900/10"
               style={({ pressed }) => ({
                 opacity: pressed ? 0.9 : 1,
@@ -438,9 +561,9 @@ export default function acceuil() {
                   Recherche en cours...
                 </Text>
               </View>
-            ) : resultatsRecherche.length > 0 ? (
+            ) : resultatsFiltres.length > 0 ? (
               <View className="gap-2">
-                {resultatsRecherche.map((item, index) => (
+                {resultatsFiltres.map((item, index) => (
                   <Pressable
                     key={`${item.type}-${item.id}-${index}`}
                     className="flex-row items-center gap-4 rounded-xl bg-gray-50 p-4"
@@ -452,6 +575,14 @@ export default function acceuil() {
 
                       await ajouterRechercheRecente(item.titre);
                       await chargerRecherchesRecentes();
+
+                      router.push({
+                        pathname: "/detailsBus/[id]",
+                        params: {
+                          id: String(item.id),
+                          type: item.type,
+                        },
+                      });
                     }}
                   >
                     {/* Icône selon le type de résultat */}
