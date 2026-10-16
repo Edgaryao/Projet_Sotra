@@ -2,8 +2,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const CLE_RECHERCHES_RECENTES = "@sotra_recherches_recentes";
 
-const MAX_RECHERCHES = 5;
-
 // Récupérer les recherches récentes
 export async function recupererRecherchesRecentes(): Promise<string[]> {
   try {
@@ -42,12 +40,9 @@ export async function ajouterRechercheRecente(
     // Mettre la nouvelle recherche au début
     const nouvellesRecherches = [texte, ...recherchesSansDoublon];
 
-    // Garder seulement les 5 dernières
-    const recherchesLimitees = nouvellesRecherches.slice(0, MAX_RECHERCHES);
-
     await AsyncStorage.setItem(
       CLE_RECHERCHES_RECENTES,
-      JSON.stringify(recherchesLimitees),
+      JSON.stringify(nouvellesRecherches),
     );
   } catch (error) {
     console.error("❌ Erreur sauvegarde recherche récente :", error);

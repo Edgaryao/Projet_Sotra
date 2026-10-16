@@ -74,6 +74,16 @@ export async function recupererArretsParcours(
   return await db.getAllAsync<ArretDetail>(sql, [parcoursId]);
 }
 
+export async function recupererArretsAvecCoordonnees(): Promise<ArretDetail[]> {
+  const db = await getDatabase();
+
+  return db.getAllAsync<ArretDetail>(`
+    SELECT id, nom, latitude, longitude
+    FROM arrets
+    WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+  `);
+}
+
 export async function recupererArret(
   arretId: number,
 ): Promise<ArretDetail | null> {
@@ -134,11 +144,11 @@ export async function recupererLignesArret(
   const db = await getDatabase();
 
   const sql = `
-    SELECT DISTINCT
+    SELECT
       l.id,
       l.numero,
       l.nom,
-      p.nom AS parcours_nom
+      GROUP_CONCAT(DISTINCT p.nom) AS parcours_nom
 
     FROM parcours_arrets pa
 
@@ -150,6 +160,7 @@ export async function recupererLignesArret(
 
     WHERE pa.arret_id = ?
 
+    GROUP BY l.id, l.numero, l.nom
     ORDER BY l.numero ASC
   `;
 

@@ -112,7 +112,7 @@ export default function Details() {
         resizeMode="cover"
         className="h-[260px] w-full"
       >
-        <View className="flex-1 bg-black/25">
+        <View className="flex-1">
           {/* BOUTON RETOUR */}
 
           <View className="px-5 pt-14">
@@ -139,13 +139,7 @@ export default function Details() {
         )}
       </ImageBackground>
 
-      <ScrollView
-        className="flex-1"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingBottom: 40,
-        }}
-      >
+      <View className="flex-1">
         {chargement && (
           <View className="flex-1 items-center justify-center px-5 py-10">
             <Text className="text-center text-base font-medium text-gray-600">
@@ -157,7 +151,7 @@ export default function Details() {
         {/* lignes de bus  */}
 
         {!chargement && type === "parcours" && (
-          <View>
+          <View className="flex-1">
             {/* TITRE */}
 
             {/* TRAJET */}
@@ -207,29 +201,44 @@ export default function Details() {
 
             {/* ARRÊTS */}
 
-            <View className="px-5">
+            <View className="flex-1 px-5">
               <Text className="mb-4 text-xl font-bold text-gray-900">
                 Arrêts du parcours
               </Text>
 
-              {arretsParcours.map((arret, index) => (
-                <Pressable
-                  key={`${arret.id}-${index}`}
-                  className="flex-row items-center border-b border-gray-100 py-4"
-                >
-                  <View className="h-8 w-8 items-center justify-center rounded-full bg-gray-100">
-                    <Text className="text-xs font-semibold text-gray-700">
-                      {String(index + 1).padStart(2, "0")}
+              <ScrollView
+                className="flex-1"
+                nestedScrollEnabled
+                showsVerticalScrollIndicator
+                contentContainerStyle={{ paddingBottom: 24 }}
+              >
+                {arretsParcours.map((arret, index) => (
+                  <Pressable
+                    key={`${arret.id}-${index}`}
+                    accessibilityRole="button"
+                    onPress={() => {
+                      router.push({
+                        pathname: "/detailsBus/[id]",
+                        params: { id: String(arret.id), type: "arret" },
+                      });
+                    }}
+                    android_ripple={{ color: "#E5E7EB" }}
+                    className="flex-row items-center border-b border-gray-100 py-4"
+                  >
+                    <View className="h-8 w-8 items-center justify-center rounded-full bg-gray-100">
+                      <Text className="text-xs font-semibold text-gray-700">
+                        {String(index + 1).padStart(2, "0")}
+                      </Text>
+                    </View>
+
+                    <Text className="ml-4 flex-1 text-base font-medium text-gray-900">
+                      {arret.nom}
                     </Text>
-                  </View>
 
-                  <Text className="ml-4 flex-1 text-base font-medium text-gray-900">
-                    {arret.nom}
-                  </Text>
-
-                  <ChevronRight size={18} color="#9CA3AF" />
-                </Pressable>
-              ))}
+                    <ChevronRight size={18} color="#9CA3AF" />
+                  </Pressable>
+                ))}
+              </ScrollView>
             </View>
           </View>
         )}
@@ -268,12 +277,21 @@ export default function Details() {
           </View>
         )}
         {!chargement && type === "arret" && (
-          <View className="px-5 py-6">
+          <View className="flex-1 px-5 pt-5">
             <Text className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-500">
-              Lignes disponibles
+              Bus desservant cet arrêt
             </Text>
 
-            {lignesArret.map((ligne, index) => (
+            <ScrollView
+              className="flex-1"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 24 }}
+            >
+              {lignesArret.length === 0 ? (
+                <Text className="rounded-xl bg-gray-50 p-4 text-sm text-gray-500">
+                Aucun bus trouvé pour cet arrêt.
+              </Text>
+            ) : lignesArret.map((ligne, index) => (
               <Pressable
                 key={`${ligne.id}-${index}`}
                 className="mb-3 flex-row items-center rounded-2xl border border-gray-200 p-4"
@@ -303,10 +321,11 @@ export default function Details() {
 
                 <ChevronRight size={19} color="#9CA3AF" />
               </Pressable>
-            ))}
+                  ))}
+            </ScrollView>
           </View>
         )}
-      </ScrollView>
+      </View>
     </View>
   );
 }

@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import * as Location from "expo-location";
 import {
   BusFront,
   ChevronDown,
@@ -19,6 +20,7 @@ import { useColorScheme } from "nativewind";
 import { useEffect, useState } from "react";
 import {
   Alert,
+  BackHandler,
   ImageBackground,
   Keyboard,
   Modal,
@@ -32,6 +34,10 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { rechercherBus, ResultatRecherche } from "../../database/recherche";
 import {
+  recupererArretsAvecCoordonnees,
+  type ArretDetail,
+} from "../../database/detailsBus";
+import {
   ajouterRechercheRecente,
   recupererRecherchesRecentes,
   supprimerRecherchesRecentes,
@@ -39,6 +45,7 @@ import {
 import { reinitialiserBase } from "../../database/resetDatabase";
 
 type FiltreType = "tous" | "ligne" | "arret" | "parcours";
+type ArretProche = ArretDetail & { distanceMetres: number };
 const filtres: { valeur: FiltreType; libelle: string }[] = [
   { valeur: "tous", libelle: "Tous" },
   { valeur: "ligne", libelle: "Bus" },
@@ -65,12 +72,15 @@ export default function acceuil() {
   };
 
   const [modalEffacerVisible, setModalEffacerVisible] = useState(false);
+  const [modalArretsProchesVisible, setModalArretsProchesVisible] = useState(false);
+  const [chargementArretsProches, setChargementArretsProches] = useState(false);
+  const [arretsProches, setArretsProches] = useState<ArretProche[]>([]);
   const [voirArretsProche, setVoirArretsProche] = useState(false);
   const [changeTheme, setChangeTheme] = useState(false);
-  const [trouverTrajet, setTrouverTrajet] = useState(false);
-  const [voirCarteArrets, setVoirCarteArrets] = useState(false);
   const [voirTout, setVoirTout] = useState(false);
   const [isSearchMode, setIsSearchMode] = useState(false);
+  const [afficherHistoriqueComplet, setAfficherHistoriqueComplet] =
+    useState(false);
   const [parameter, setparameter] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filtreType, setFiltreType] = useState<FiltreType>("tous");
@@ -84,10 +94,85 @@ export default function acceuil() {
   const resultatsFiltres = resultatsRecherche.filter(
     (item) => filtreType === "tous" || item.type === filtreType,
   );
+  const recherchesVisibles = afficherHistoriqueComplet
+    ? recherchesRecentes
+    : recherchesRecentes.slice(0, 4);
+
+  const basculerHistoriqueComplet = () => {
+    setAfficherHistoriqueComplet((affiche) => !affiche);
+  };
+
+  const trouverArretsProches = async () => {
+    setModalArretsProchesVisible(true);
+    setChargementArretsProches(true);
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== "granted") {
+        setModalArretsProchesVisible(false);
+        Alert.alert(
+          "Localisation requise",
+          "Autorisez l'acces a votre position pour trouver les arrets proches.",
+        );
+        return;
+      }
+
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const arrets = await recupererArretsAvecCoordonnees();
+      const { latitude, longitude } = position.coords;
+      const rayonTerre = 6371000;
+      const radians = (degres: number) => (degres * Math.PI) / 180;
+
+      const proches = arrets
+        .map((arret) => {
+          const latitudeArret = arret.latitude!;
+          const longitudeArret = arret.longitude!;
+          const differenceLatitude = radians(latitudeArret - latitude);
+          const differenceLongitude = radians(longitudeArret - longitude);
+          const calcul =
+            Math.sin(differenceLatitude / 2) ** 2 +
+            Math.cos(radians(latitude)) *
+              Math.cos(radians(latitudeArret)) *
+              Math.sin(differenceLongitude / 2) ** 2;
+          const distanceMetres =
+            2 * rayonTerre * Math.asin(Math.sqrt(calcul));
+
+          return { ...arret, distanceMetres };
+        })
+        .filter((arret) => arret.distanceMetres <= 5000)
+        .sort((a, b) => a.distanceMetres - b.distanceMetres);
+
+      setArretsProches(proches);
+    } catch (error) {
+      setModalArretsProchesVisible(false);
+      console.error("Nearby stop lookup failed:", error);
+      Alert.alert(
+        "Localisation indisponible",
+        "Impossible de recuperer votre position. Verifiez que la localisation est activee, puis reessayez.",
+      );
+    } finally {
+      setChargementArretsProches(false);
+    }
+  };
 
   const handleSearchFocus = () => {
     setIsSearchMode(true);
   };
+
+  useEffect(() => {
+    if (!isSearchMode) return;
+
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        handleSearchClose();
+        return true;
+      },
+    );
+
+    return () => subscription.remove();
+  }, [isSearchMode]);
 
   const handleSearchClose = () => {
     setIsSearchMode(false);
@@ -231,9 +316,7 @@ export default function acceuil() {
             }}
             onPressIn={() => setVoirArretsProche(true)}
             onPressOut={() => setVoirArretsProche(false)}
-            onPress={() => {
-              router.push("/(tabs)/carte");
-            }}
+            onPress={() => void trouverArretsProches()}
           >
             <LocateFixed color="white" size={22} strokeWidth={2.5} />
             <Text className="flex-1 text-sm font-bold text-white">
@@ -250,91 +333,34 @@ export default function acceuil() {
             </Text>
           </Pressable> */}
 
-          {/* Scrollable content */}
+          {/* Accès rapide et recherches r?centes */}
           <View className="mt-8 flex-1">
-            {/* Quick access section */}
+            {/* Accès rapide au chat */}
             <View>
               <View className="mb-4 flex-row items-center justify-between">
                 <Text className="text-2xl font-extrabold text-gray-900">
                   Accès rapide
                 </Text>
               </View>
-              <View className="flex-row justify-between gap-4">
-                <Pressable
-                  accessibilityRole="button"
-                  className="min-h-44 flex-1 overflow-hidden rounded-3xl shadow-xl shadow-black/10"
-
-                  style={{
-                    opacity: trouverTrajet ? 0.9 : 1,
-                    transform: [{ scale: trouverTrajet ? 0.97 : 1 }],
-                  }}
-
-                  onPress={() => {
-                    router.push("/(tabs)/carte");
-                  }}
-                  onPressIn={() => setTrouverTrajet(true)}
-                  onPressOut={() => setTrouverTrajet(false)}
-                >
-                  <ImageBackground
-                    source={require("../../../assets/images/trajet.jpg")}
-                    className="flex-1 justify-between p-5"
-                    resizeMode="cover"
-                  >
-                    <View className="absolute inset-0 bg-black/40" />
-                    <View className="flex-row items-center justify-between">
-                      <View className="h-14 w-14 items-center justify-center rounded-2xl" />
-                      <View className="h-8 w-8 items-center justify-center rounded-full bg-white/90">
-                        <Route color="#6B7280" size={18} strokeWidth={2.5} />
-                      </View>
-                    </View>
-                    <View className="mt-6">
-                      <Text className="text-xl font-extrabold text-white drop-shadow-lg">
-                        Trouver un trajet
-                      </Text>
-                      <Text className="mt-1.5 text-xs leading-5 text-white/95 drop-shadow-md">
-                        Départ ---{">"} Destination
-                      </Text>
-                    </View>
-                  </ImageBackground>
-                </Pressable>
-
-                <Pressable
-                  accessibilityRole="button"
-                  className="min-h-44 flex-1 overflow-hidden rounded-3xl shadow-xl shadow-black/10"
-                  style={{
-                    opacity: voirCarteArrets ? 0.9 : 1,
-                    transform: [{ scale: voirCarteArrets ? 0.97 : 1 }],
-                  }}
-
-                  onPress={() => {
-                    router.push("/(tabs)/carte");
-                  }}
-                  onPressIn={() => setVoirCarteArrets(true)}
-                  onPressOut={() => setVoirCarteArrets(false)}
-                >
-                  <ImageBackground
-                    source={require("../../../assets/images/carte.png")}
-                    className="flex-1 justify-between p-5"
-                    resizeMode="cover"
-                  >
-                    <View className="absolute inset-0 bg-black/40" />
-                    <View className="flex-row items-center justify-between">
-                      <View className="h-14 w-14 items-center justify-center rounded-2xl"></View>
-                      <View className="h-8 w-8 items-center justify-center rounded-full bg-white/90">
-                        <Route color="#6B7280" size={18} strokeWidth={2.5} />
-                      </View>
-                    </View>
-                    <View className="mt-6">
-                      <Text className="text-xl font-extrabold text-white drop-shadow-lg">
-                        Carte des arrêts
-                      </Text>
-                      <Text className="mt-1.5 text-xs leading-5 text-white/95 drop-shadow-md">
-                        Explorer les alentours
-                      </Text>
-                    </View>
-                  </ImageBackground>
-                </Pressable>
-              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push("/(tabs)/Ia")}
+                android_ripple={{ color: "#A7F3D0" }}
+                className="min-h-36 flex-row items-center gap-4 rounded-3xl bg-emerald-700 p-5 shadow-xl shadow-emerald-900/20"
+              >
+                <View className="h-14 w-14 items-center justify-center rounded-2xl bg-amber-400">
+                  <Sparkles color="#1F2937" size={24} strokeWidth={2.5} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-xl font-extrabold text-white">
+                    Discuter avec l’IA
+                  </Text>
+                  <Text className="mt-1 text-sm leading-5 text-emerald-50">
+                    Posez une question sur vos trajets et les lignes de bus.
+                  </Text>
+                </View>
+                <ChevronRight color="white" size={22} strokeWidth={2.5} />
+              </Pressable>
             </View>
 
             {/* Recent section */}
@@ -357,7 +383,7 @@ export default function acceuil() {
                 </View>
 
                 <View className="gap-2">
-                  {recherchesRecentes.map((recherche, index) => (
+                  {recherchesRecentes.slice(0, 4).map((recherche, index) => (
                     <Pressable
                       key={`${recherche}-${index}`}
                       onPress={() => {
@@ -382,10 +408,12 @@ export default function acceuil() {
           <Modal
             visible={modalEffacerVisible}
             transparent
+            statusBarTranslucent
+            navigationBarTranslucent
             animationType="fade"
             onRequestClose={() => setModalEffacerVisible(false)}
           >
-            <View className="flex-1 items-center justify-center bg-black/50 px-6">
+            <View className="absolute inset-0 flex-1 items-center justify-center bg-black/60 px-6">
               <View className="w-full rounded-3xl bg-white p-6">
                 {/* Titre */}
                 <Text className="text-xl font-bold text-gray-900">
@@ -419,6 +447,76 @@ export default function acceuil() {
                     <Text className="font-semibold text-white">Effacer</Text>
                   </Pressable>
                 </View>
+              </View>
+            </View>
+          </Modal>
+          <Modal
+            visible={modalArretsProchesVisible}
+            transparent
+            statusBarTranslucent
+            navigationBarTranslucent
+            animationType="slide"
+            onRequestClose={() => setModalArretsProchesVisible(false)}
+          >
+            <View className="flex-1 justify-end bg-black/50">
+              <View className="max-h-[80%] rounded-t-3xl bg-white px-5 pb-8 pt-5">
+                <View className="mb-4 flex-row items-center justify-between">
+                  <View>
+                    <Text className="text-xl font-bold text-gray-900">
+                      {"Arr\u00eats autour de moi"}
+                    </Text>
+                    <Text className="mt-1 text-sm text-gray-500">
+                      Dans un rayon de 5 km
+                    </Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Close nearby stops"
+                    onPress={() => setModalArretsProchesVisible(false)}
+                    className="h-10 w-10 items-center justify-center rounded-full bg-gray-100"
+                  >
+                    <X color="#374151" size={20} />
+                  </Pressable>
+                </View>
+
+                {chargementArretsProches ? (
+                  <Text className="py-8 text-center text-gray-500">
+                    Recherche des arrets proches...
+                  </Text>
+                ) : arretsProches.length === 0 ? (
+                  <Text className="py-8 text-center text-gray-500">
+                    Aucun arret avec coordonnees trouve dans un rayon de 5 km.
+                  </Text>
+                ) : (
+                  <ScrollView showsVerticalScrollIndicator={false}>
+                    {arretsProches.map((arret) => (
+                      <Pressable
+                        key={arret.id}
+                        accessibilityRole="button"
+                        android_ripple={{ color: "#D1FAE5" }}
+                        onPress={() => {
+                          setModalArretsProchesVisible(false);
+                          router.push({
+                            pathname: "/detailsBus/[id]",
+                            params: { id: String(arret.id), type: "arret" },
+                          });
+                        }}
+                        className="mb-2 flex-row items-center rounded-xl bg-gray-50 p-4"
+                      >
+                        <LocateFixed color="#059669" size={20} />
+                        <Text className="ml-3 flex-1 text-sm font-semibold text-gray-800">
+                          {arret.nom}
+                        </Text>
+                        <Text className="text-sm font-medium text-emerald-700">
+                          {arret.distanceMetres < 1000
+                            ? `${Math.round(arret.distanceMetres)} m`
+                            : `${(arret.distanceMetres / 1000).toFixed(1)} km`}
+                        </Text>
+                        <ChevronRight color="#9CA3AF" size={18} />
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                )}
               </View>
             </View>
           </Modal>
@@ -515,6 +613,22 @@ export default function acceuil() {
                   </Pressable>
                 ))}
               </View>
+              {recherchesRecentes.length > 4 && (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={basculerHistoriqueComplet}
+                  className="mt-3 flex-row items-center justify-center rounded-xl border py-3"
+                >
+                  <Text className="text-sm font-semibold text-emerald-700">
+                    {afficherHistoriqueComplet ? "Voir moins" : "Voir plus"}
+                  </Text>
+                  {afficherHistoriqueComplet ? (
+                    <ChevronUp color="#047857" size={18} strokeWidth={2.2} />
+                  ) : (
+                    <ChevronDown color="#047857" size={18} strokeWidth={2.2} />
+                  )}
+                </Pressable>
+              )}
             </View>
           )}
         </View>
@@ -566,9 +680,13 @@ export default function acceuil() {
                 {resultatsFiltres.map((item, index) => (
                   <Pressable
                     key={`${item.type}-${item.id}-${index}`}
-                    className="flex-row items-center gap-4 rounded-xl bg-gray-50 p-4"
+                    className="flex-row items-center gap-4 rounded-xl border border-gray-100 bg-gray-50 p-4"
+                    android_ripple={{ color: "#D1FAE5", borderless: false }}
                     style={({ pressed }) => ({
-                      opacity: pressed ? 0.7 : 1,
+                      opacity: pressed ? 0.9 : 1,
+                      transform: [{ scale: pressed ? 0.99 : 1 }],
+                      backgroundColor: pressed ? "#ECFDF5" : "#F9FAFB",
+                      borderColor: pressed ? "#A7F3D0" : "#F3F4F6",
                     })}
                     onPress={async () => {
                       console.log("Résultat sélectionné :", item);
@@ -634,7 +752,9 @@ export default function acceuil() {
           </View>
           {resultatsRecherche.length >= 20 && !voirTout && (
             <Pressable
-              className=" flex-row  justify-center items-center"
+              className="flex-row items-center justify-center rounded-lg"
+              android_ripple={{ color: "#D1FAE5" }}
+              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
               onPress={() => {
                 setVoirTout(true);
                 effectuerRecherche(searchQuery, true);
@@ -646,7 +766,9 @@ export default function acceuil() {
           )}
           {voirTout && resultatsRecherche.length > 20 && (
             <Pressable
-              className=" flex-row  justify-center items-center"
+              className="flex-row items-center justify-center rounded-lg"
+              android_ripple={{ color: "#D1FAE5" }}
+              style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
               onPress={() => {
                 setVoirTout(false);
                 effectuerRecherche(searchQuery, false);
@@ -676,13 +798,18 @@ export default function acceuil() {
               </View>
 
               <View className="gap-2">
-                {recherchesRecentes.map((recherche, index) => (
+                {recherchesVisibles.map((recherche, index) => (
                   <Pressable
                     key={`${recherche}-${index}`}
                     onPress={() => {
                       effectuerRecherche(recherche, false);
                     }}
                     className="flex-row items-center gap-3 rounded-xl bg-gray-50 p-4"
+                    android_ripple={{ color: "#D1FAE5" }}
+                    style={({ pressed }) => ({
+                      opacity: pressed ? 0.9 : 1,
+                      backgroundColor: pressed ? "#ECFDF5" : "#F9FAFB",
+                    })}
                   >
                     <ClockFading color="#6B7280" size={19} strokeWidth={2} />
 
@@ -694,16 +821,34 @@ export default function acceuil() {
                   </Pressable>
                 ))}
               </View>
+              {recherchesRecentes.length > 4 && (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={basculerHistoriqueComplet}
+                  className="mt-3 flex-row items-center justify-center rounded-xl  py-3"
+                >
+                  <Text className="text-sm font-semibold text-emerald-700">
+                    {afficherHistoriqueComplet ? "Voir moins" : "Voir plus"}
+                  </Text>
+                  {afficherHistoriqueComplet ? (
+                    <ChevronUp color="#047857" size={18} strokeWidth={2.2} />
+                  ) : (
+                    <ChevronDown color="#047857" size={18} strokeWidth={2.2} />
+                  )}
+                </Pressable>
+              )}
             </View>
           )}
         </ScrollView>
         <Modal
           visible={modalEffacerVisible}
           transparent
+          statusBarTranslucent
+          navigationBarTranslucent
           animationType="fade"
           onRequestClose={() => setModalEffacerVisible(false)}
         >
-          <View className="flex-1 items-center justify-center bg-black/50 px-6">
+          <View className="absolute inset-0 flex-1 items-center justify-center bg-black/60 px-6">
             <View className="w-full rounded-3xl bg-white p-6">
               {/* Titre */}
               <Text className="text-xl font-bold text-gray-900">
