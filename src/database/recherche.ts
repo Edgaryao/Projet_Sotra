@@ -322,11 +322,11 @@ export async function rechercherBus(
     // DEBUG
     // =================================================
 
-    console.log("🔎 Recherche :", texte);
+    console.log("Recherche :", texte);
 
-    console.log("🎯 Filtre :", filtre);
+    console.log("Filtre :", filtre);
 
-    console.log("📊 Limite :", limite);
+    console.log("Limite :", limite);
 
     // =================================================
     // EXÉCUTER LA REQUÊTE

@@ -202,9 +202,9 @@ export default function acceuil() {
       if (resultats.length > 0) {
       }
       setResultatsRecherche(resultats);
-      console.log("🔎 Résultats avant affichage :", resultatsRecherche);
+      console.log("Résultats avant affichage :", resultatsRecherche);
     } catch (error) {
-      console.error("❌ Erreur recherche SQLite :", error);
+      console.error("Erreur recherche SQLite :", error);
       setResultatsRecherche([]);
     } finally {
       setRechercheEnCours(false);
@@ -227,13 +227,13 @@ export default function acceuil() {
           onPress: async () => {
             try {
               await reinitialiserBase();
-              console.log("✅ Base de données vidée avec succès");
+              console.log("Base de données vidée avec succès");
               Alert.alert(
                 "Succès",
                 "Base de données réinitialisée ! Fermez et relancez l'application.",
               );
             } catch (error) {
-              console.error("❌ Erreur lors de la réinitialisation:", error);
+              console.error("Erreur lors de la réinitialisation:", error);
               Alert.alert("Erreur", "Impossible de réinitialiser la base");
             }
           },
