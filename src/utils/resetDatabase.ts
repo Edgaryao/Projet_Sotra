@@ -1,4 +1,4 @@
-import { reinitialiserBase } from "../database/synchornisation_supabase_sqlite";
+import { reinitialiserBase } from "../database/synchornisation_supabase_sqlite.web";
 
 /**
  * Fonction utilitaire pour réinitialiser la base de données

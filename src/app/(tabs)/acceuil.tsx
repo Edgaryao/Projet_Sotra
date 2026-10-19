@@ -34,7 +34,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   recupererArretsAvecCoordonnees,
   type ArretDetail,
-} from "../../database/detailsBus";
+} from "../../database/detailsBus.web";
 import {
   rechercherBus,
   type ResultatRecherche,
@@ -364,6 +364,7 @@ export default function acceuil() {
           </Pressable>
 
           <View className="mt-64 flex-1">
+            <View className="mt-8"></View>
             {recherchesRecentes.length > 0 && (
               <View className="mt-6">
                 <View className="mb-3 flex-row items-center justify-between">

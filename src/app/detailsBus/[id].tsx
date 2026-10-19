@@ -9,9 +9,15 @@ import {
   type LigneArretDetail,
   type ParcoursDetail,
   type ParcoursLigneDetail,
-} from "@/database/detailsBus";
+} from "@/database/detailsBus.web";
 import { router, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, BusFront, ChevronRight, Route , House} from "lucide-react-native";
+import {
+  ArrowLeft,
+  BusFront,
+  ChevronRight,
+  House,
+  Route,
+} from "lucide-react-native";
 import { useColorScheme } from "nativewind";
 import { useEffect, useState } from "react";
 import {

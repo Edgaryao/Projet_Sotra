@@ -1,3 +1,4 @@
+import { supabase } from "@/lib/supabase";
 import { router } from "expo-router";
 import { Check, WifiOff } from "lucide-react-native";
 import { useEffect, useState } from "react";
@@ -9,12 +10,12 @@ import {
   syncParcours,
   syncParcoursArrets,
   terminerSynchronisation,
-} from "../database/synchornisation_supabase_sqlite";
-import { supabase } from "@/lib/supabase";
+} from "../database/synchornisation_supabase_sqlite.web";
 type EtatSynchronistion = "enSynchro" | "success" | "erreur";
 
 export default function Synchronisation() {
-  const [EtatSynchronistion, setEtatSynchronistion] = useState<EtatSynchronistion>("enSynchro");
+  const [EtatSynchronistion, setEtatSynchronistion] =
+    useState<EtatSynchronistion>("enSynchro");
   const [ProgresionSynchro, setProgresionSynchro] = useState("");
   const [PourcentageProgression, setPourcentageProgression] = useState(0);
   const [MessageErreur, setMessageErreur] = useState("");
@@ -57,15 +58,14 @@ export default function Synchronisation() {
         const etat = await getEtatSynchronisation();
         console.log("État de la synchro:", etat);
 
-        // synchronisation des lignes 
+        // synchronisation des lignes
         if (etat.lignes_ok === 0) {
           setProgresionSynchro("Téléchargement des lignes...");
           setPourcentageProgression(10);
           await Promise.race([
             syncLignes(),
-            new Promise(
-              (_, reject) =>
-                setTimeout(() => reject(new Error("Timeout")), 60000), 
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("Timeout")), 60000),
             ),
           ]);
           console.log("✅ Lignes synchronisées");
@@ -141,7 +141,7 @@ export default function Synchronisation() {
         console.error("Erreur pendant la synchronisation:", syncError);
 
         // Vérifier si c'est un problème de connexion
-        const stillConnected = await verifierConnexion(); 
+        const stillConnected = await verifierConnexion();
 
         // Message en fonction de l'erreur et de l'état actuel
         let message = "";
