@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "SOTRA GO",
-    "slug": "sotra-go",
+    "slug": "AlerteCitoyens",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
