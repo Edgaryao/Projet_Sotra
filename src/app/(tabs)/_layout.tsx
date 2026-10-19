@@ -8,9 +8,6 @@ export default function StackLayout() {
       }}
     >
       <Stack.Screen name="acceuil" />
-      <Stack.Screen name="Ia" />
-      <Stack.Screen name="profil" />
-      <Stack.Screen name="parametre" />
     </Stack>
   );
 }
